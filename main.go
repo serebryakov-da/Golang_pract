@@ -79,9 +79,9 @@ func checkMetrics(stats []float64) {
     
     // 1 - Total RAM, 2 - Used RAM (>80%)
     if stats[1] > 0 {
-        memoryUsagePercent := int((stats[2] / stats[1]) * 100)
+        memoryUsagePercent := (stats[2] / stats[1]) * 100
         if memoryUsagePercent > 80 {
-            fmt.Printf("Memory usage too high: %d%%\n", memoryUsagePercent)
+            fmt.Printf("Memory usage too high: %.0f%%\n", memoryUsagePercent)
         }
     }
     
@@ -90,7 +90,7 @@ func checkMetrics(stats []float64) {
         freeDiskBytes := stats[3] - stats[4]
         freeDiskPercent := (freeDiskBytes / stats[3]) * 100
         if freeDiskPercent < 10 {
-            freeDiskMB := freeDiskBytes / (1024 * 1024)
+            freeDiskMB := freeDiskBytes / (1024.0 * 1024.0)
             fmt.Printf("Free disk space is too low: %.0f Mb left\n", freeDiskMB)
         }
     }
@@ -100,7 +100,7 @@ func checkMetrics(stats []float64) {
         networkUsagePercent := (stats[6] / stats[5]) * 100
         if networkUsagePercent > 90 {
             availableBandwidthBytes := stats[5] - stats[6]
-            availableBandwidthMbps := availableBandwidthBytes * 8 / (1024 * 1024) // 1 Мбит/с = 125000 байт/с
+            availableBandwidthMbps := (availableBandwidthBytes * 8) / (1024.0 * 1024.0)
             fmt.Printf("Network bandwidth usage high: %.0f Mbit/s available\n", availableBandwidthMbps)
         }
     }
