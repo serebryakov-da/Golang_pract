@@ -2,20 +2,22 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	// читаем строку из тела запроса
-	buf := new(strings.Builder)
-	_, err := buf.ReadFrom(r.Body)
+	// читаем тело запроса
+	data, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "failed to read body", http.StatusInternalServerError)
 		return
 	}
-	fields := strings.Split(strings.TrimSpace(buf.String()), ",")
+	defer r.Body.Close()
+
+	fields := strings.Split(strings.TrimSpace(string(data)), ",")
 	if len(fields) != 7 {
 		http.Error(w, "invalid input", http.StatusBadRequest)
 		return
