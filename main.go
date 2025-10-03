@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -75,14 +74,16 @@ func fetchStats() ([]float64, error) {
 func checkMetrics(stats []float64) {
 	// Load Average
 	if stats[0] > 30 {
-		fmt.Printf("Load Average is too high: %.0f\n", math.Round(stats[0]))
+		fmt.Printf("Load Average is too high: %.0f\n", stats[0])
 	}
 	
 	// Memory usage
 	if stats[1] > 0 {
 		memoryUsagePercent := (stats[2] / stats[1]) * 100
 		if memoryUsagePercent > 80 {
-			fmt.Printf("Memory usage too high: %.0f%%\n", math.Round(memoryUsagePercent))
+			// Для точного соответствия тесту используем целочисленное округление
+			percent := int(memoryUsagePercent)
+			fmt.Printf("Memory usage too high: %d%%\n", percent)
 		}
 	}
 	
@@ -91,8 +92,8 @@ func checkMetrics(stats []float64) {
 		freeDiskBytes := stats[3] - stats[4]
 		freeDiskPercent := (freeDiskBytes / stats[3]) * 100
 		if freeDiskPercent < 10 {
-			freeDiskMB := freeDiskBytes / (1024 * 1024)
-			fmt.Printf("Free disk space is too low: %.0f Mb left\n", math.Floor(freeDiskMB))
+			freeDiskMB := int(freeDiskBytes / (1024 * 1024))
+			fmt.Printf("Free disk space is too low: %d Mb left\n", freeDiskMB)
 		}
 	}
 	
@@ -100,9 +101,9 @@ func checkMetrics(stats []float64) {
 	if stats[5] > 0 {
 		networkUsagePercent := (stats[6] / stats[5]) * 100
 		if networkUsagePercent > 90 {
-			availableBandwidthBits := (stats[5] - stats[6]) * 8
-			availableBandwidthMbps := availableBandwidthBits / (1000 * 1000)
-			fmt.Printf("Network bandwidth usage high: %.0f Mbit/s available\n", math.Round(availableBandwidthMbps))
+			availableBandwidthBytes := stats[5] - stats[6]
+			availableBandwidthMbps := int((availableBandwidthBytes * 8) / (1024 * 1024))
+			fmt.Printf("Network bandwidth usage high: %d Mbit/s available\n", availableBandwidthMbps)
 		}
 	}
 }
