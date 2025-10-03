@@ -1,8 +1,8 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -26,19 +26,15 @@ func main() {
 
 			if errorCount >= maxErrors {
 				fmt.Println("Unable to fetch server statistic")
-				errorCount = 0 // Сбрасываем счетчик после вывода сообщения
+				errorCount = 0
 			}
 
 			time.Sleep(checkInterval)
 			continue
 		}
 
-		// Сбрасываем счетчик ошибок при успешном запросе
 		errorCount = 0
-
-		// Проверяем метрики
 		checkMetrics(stats)
-
 		time.Sleep(checkInterval)
 	}
 }
@@ -54,20 +50,19 @@ func fetchStats() ([]float64, error) {
 		return nil, fmt.Errorf("HTTP status %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	scanner := bufio.NewScanner(resp.Body)
+	if !scanner.Scan() {
+		return nil, fmt.Errorf("empty response")
 	}
 
-	// Парсим данные
-	statsStr := strings.TrimSpace(string(body))
+	statsStr := strings.TrimSpace(scanner.Text())
 	values := strings.Split(statsStr, ",")
 
 	if len(values) != 7 {
 		return nil, fmt.Errorf("invalid data format: expected 7 values, got %d", len(values))
 	}
 
-	var stats []float64
+	stats := make([]float64, 0, 7)
 	for _, val := range values {
 		num, err := strconv.ParseFloat(strings.TrimSpace(val), 64)
 		if err != nil {
@@ -80,29 +75,20 @@ func fetchStats() ([]float64, error) {
 }
 
 func checkMetrics(stats []float64) {
-	// Индексы согласно описанию:
-	// 0 - Load Average
-	// 1 - Total RAM
-	// 2 - Used RAM
-	// 3 - Total Disk
-	// 4 - Used Disk
-	// 5 - Total Network Bandwidth
-	// 6 - Used Network Bandwidth
-
-	// Проверка Load Average
+	// Load Average check
 	if stats[0] > 30 {
 		fmt.Printf("Load Average is too high: %.2f\n", stats[0])
 	}
 
-	// Проверка использования памяти (>80%)
-	if stats[1] > 0 { // избегаем деления на ноль
+	// Memory usage check (>80%)
+	if stats[1] > 0 {
 		memoryUsagePercent := (stats[2] / stats[1]) * 100
 		if memoryUsagePercent > 80 {
 			fmt.Printf("Memory usage too high: %.1f%%\n", memoryUsagePercent)
 		}
 	}
 
-	// Проверка свободного места на диске (<10% свободно)
+	// Disk space check (<10% free)
 	if stats[3] > 0 {
 		freeDiskBytes := stats[3] - stats[4]
 		freeDiskPercent := (freeDiskBytes / stats[3]) * 100
@@ -112,12 +98,12 @@ func checkMetrics(stats []float64) {
 		}
 	}
 
-	// Проверка использования сети (>90%)
+	// Network bandwidth check (>90% used)
 	if stats[5] > 0 {
 		networkUsagePercent := (stats[6] / stats[5]) * 100
 		if networkUsagePercent > 90 {
-			availableBandwidthBits := (stats[5] - stats[6]) * 8              // переводим в биты
-			availableBandwidthMbps := availableBandwidthBits / (1000 * 1000) // переводим в мегабиты
+			availableBandwidthBits := (stats[5] - stats[6]) * 8
+			availableBandwidthMbps := availableBandwidthBits / (1000 * 1000)
 			fmt.Printf("Network bandwidth usage high: %.0f Mbit/s available\n", availableBandwidthMbps)
 		}
 	}
