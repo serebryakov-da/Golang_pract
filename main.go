@@ -97,12 +97,11 @@ func checkMetrics(stats []float64) {
 	
 	// 5 - Total Network, 6 - Used Network (>90%)
 	if stats[5] > 0 {
-		networkUsagePercent := (stats[6] / stats[5]) * 100
-		if networkUsagePercent > 90 {
-			// Используем расчет как в тесте: байты -> мегабиты
-			availableBandwidthBytes := stats[5] - stats[6]
-			availableBandwidthMbps := availableBandwidthBytes / (125000) // 1 Mbit/s = 125000 bytes/s
-			fmt.Printf("Network bandwidth usage high: %.0f Mbit/s available\n", availableBandwidthMbps)
-		}
-	}
+    networkUsagePercent := (stats[6] / stats[5]) * 100
+    if networkUsagePercent > 90 {
+        availableBandwidthBytes := stats[5] - stats[6]
+        availableBandwidthMbps := availableBandwidthBytes / (1024 * 125) // 1 Мбит/с = 125000 байт/с
+        fmt.Printf("Network bandwidth usage high: %.0f Mbit/s available\n", availableBandwidthMbps)
+    }
+}
 }
