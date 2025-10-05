@@ -93,14 +93,6 @@ func fetchStats() ([]int64, error) {
 }
 
 func checkMetrics(vals []int64) {
-	// Порядок полей (как в тесте):
-	// 0: CurrentLA
-	// 1: MemBytesAvailable
-	// 2: MemBytesUsed
-	// 3: DiskBytesAvailable
-	// 4: DiskBytesUsed
-	// 5: NetBandwidthAvailable
-	// 6: NetBandwidthUsed
 
 	currentLA := vals[0]
 	memAvail := vals[1]
@@ -110,12 +102,10 @@ func checkMetrics(vals []int64) {
 	netAvail := vals[5]
 	netUsed := vals[6]
 
-	// 1) Load Average (>30)
 	if currentLA > 30 {
 		fmt.Printf("Load Average is too high: %d\n", currentLA)
 	}
 
-	// 2) Memory (>80%)
 	if memAvail > 0 {
 		memUsage := (memUsed * 100) / memAvail // целочисленно, усечение
 		if memUsage > 80 {
@@ -123,7 +113,6 @@ func checkMetrics(vals []int64) {
 		}
 	}
 
-	// 3) Disk (<10% free)
 	if diskAvail > 0 {
 		freeBytes := diskAvail - diskUsed
 		freePercent := (freeBytes * 100) / diskAvail
@@ -133,7 +122,6 @@ func checkMetrics(vals []int64) {
 		}
 	}
 
-	// 4) Network (>90% used)
 	if netAvail > 0 {
 		netUsagePercent := (netUsed * 100) / netAvail
 		if netUsagePercent > 90 {
