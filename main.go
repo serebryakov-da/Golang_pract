@@ -12,73 +12,134 @@ import (
 	"time"
 )
 
+const (
+	serverURL     = "http://srv.msk01.gigacorp.local/_stats"
+	defaultPeriod = 200 * time.Millisecond
+	maxErrors     = 3
+)
+
 func main() {
+	period := getInterval()
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+
+	ticker := time.NewTicker(period)
+	defer ticker.Stop()
+
+	errorCount := 0
 
 loop:
 	for {
 		select {
 		case <-sig:
 			break loop
-		default:
-			resp, err := http.Get("http://127.0.0.1/")
+		case <-ticker.C:
+			stats, err := fetchStats()
 			if err != nil {
-				time.Sleep(100 * time.Millisecond)
+				errorCount++
+				if errorCount >= maxErrors {
+					fmt.Println("Unable to fetch server statistic")
+					errorCount = 0
+				}
 				continue
 			}
-			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			// успешный ответ — сбрасываем счётчик ошибок
+			errorCount = 0
+			checkMetrics(stats)
+		}
+	}
+}
 
-			fields := strings.Split(strings.TrimSpace(string(body)), ",")
-			if len(fields) != 7 {
-				continue
-			}
+func getInterval() time.Duration {
+	if v := os.Getenv("CHECK_INTERVAL"); v != "" {
+		if s, err := strconv.Atoi(v); err == nil && s > 0 {
+			return time.Duration(s) * time.Second
+		}
+	}
+	return defaultPeriod
+}
 
-			vals := make([]int64, 7)
-			for i, f := range fields {
-				n, _ := strconv.ParseInt(strings.TrimSpace(f), 10, 64)
-				vals[i] = n
-			}
+func fetchStats() ([]int64, error) {
+	resp, err := http.Get(serverURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
 
-			currentLA := vals[0]
-			memAvail := vals[1]
-			memUsed := vals[2]
-			diskAvail := vals[3]
-			diskUsed := vals[4]
-			netAvail := vals[5]
-			netUsed := vals[6]
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP status %d", resp.StatusCode)
+	}
 
-			// Load Average
-			if currentLA > 30 {
-				fmt.Printf("Load Average is too high: %d\n", currentLA)
-			}
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 
-			// Memory
-			if memAvail > 0 {
-				usage := (memUsed * 100) / memAvail
-				if usage >= 85 {
-					fmt.Printf("Memory usage too high: %d%%\n", usage)
-				}
-			}
+	s := strings.TrimSpace(string(data))
+	parts := strings.Split(s, ",")
+	if len(parts) != 7 {
+		return nil, fmt.Errorf("invalid data format")
+	}
 
-			// Disk
-			if diskAvail > 0 {
-				free := (diskAvail - diskUsed) / (1024 * 1024)
-				if free < 10240 {
-					fmt.Printf("Free disk space is too low: %d Mb left\n", free)
-				}
-			}
+	vals := make([]int64, 7)
+	for i, p := range parts {
+		n, err := strconv.ParseInt(strings.TrimSpace(p), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		vals[i] = n
+	}
+	return vals, nil
+}
 
-			// Network
-			if netAvail > 0 {
-				bw := (netAvail - netUsed) / 1_000_000
-				if bw < 200 {
-					fmt.Printf("Network bandwidth usage high: %d Mbit/s available\n", bw)
-				}
-			}
+func checkMetrics(vals []int64) {
+	// Порядок полей (как в тесте):
+	// 0: CurrentLA
+	// 1: MemBytesAvailable
+	// 2: MemBytesUsed
+	// 3: DiskBytesAvailable
+	// 4: DiskBytesUsed
+	// 5: NetBandwidthAvailable
+	// 6: NetBandwidthUsed
 
-			time.Sleep(200 * time.Millisecond)
+	currentLA := vals[0]
+	memAvail := vals[1]
+	memUsed := vals[2]
+	diskAvail := vals[3]
+	diskUsed := vals[4]
+	netAvail := vals[5]
+	netUsed := vals[6]
+
+	// 1) Load Average (>30)
+	if currentLA > 30 {
+		fmt.Printf("Load Average is too high: %d\n", currentLA)
+	}
+
+	// 2) Memory (>80%)
+	if memAvail > 0 {
+		memUsage := (memUsed * 100) / memAvail // целочисленно, усечение
+		if memUsage > 80 {
+			fmt.Printf("Memory usage too high: %d%%\n", memUsage)
+		}
+	}
+
+	// 3) Disk (<10% free)
+	if diskAvail > 0 {
+		freeBytes := diskAvail - diskUsed
+		freePercent := (freeBytes * 100) / diskAvail
+		if freePercent < 10 {
+			freeMb := freeBytes / (1024 * 1024) // перевод в МБ (целочисленно)
+			fmt.Printf("Free disk space is too low: %d Mb left\n", freeMb)
+		}
+	}
+
+	// 4) Network (>90% used)
+	if netAvail > 0 {
+		netUsagePercent := (netUsed * 100) / netAvail
+		if netUsagePercent > 90 {
+			availableBytes := netAvail - netUsed
+			availableMbit := availableBytes / 1_000_000 // по тесту: /1000/1000
+			fmt.Printf("Network bandwidth usage high: %d Mbit/s available\n", availableMbit)
 		}
 	}
 }
