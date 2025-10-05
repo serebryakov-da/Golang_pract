@@ -35,13 +35,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// извлекаем показатели
-	loadAvg := vals[0]
-	netIn := vals[1]
-	netOut := vals[2]
-	diskTotal := vals[3]
-	diskUsed := vals[4]
-	memTotal := vals[5]
-	memUsed := vals[6]
+loadAvg   := vals[0]
+memTotal  := vals[1]
+memUsed   := vals[2]
+diskTotal := vals[3]
+diskUsed  := vals[4]
+netIn     := vals[5]
+netOut    := vals[6]
 
 	// проверки
 
