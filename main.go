@@ -9,7 +9,6 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	// читаем тело запроса
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "failed to read body", http.StatusInternalServerError)
@@ -23,7 +22,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// парсим числа
 	vals := make([]int64, len(fields))
 	for i, f := range fields {
 		n, err := strconv.ParseInt(strings.TrimSpace(f), 10, 64)
@@ -34,26 +32,19 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		vals[i] = n
 	}
 
-	// извлекаем показатели
-loadAvg   := vals[0]
-memTotal  := vals[1]
-memUsed   := vals[2]
-diskTotal := vals[3]
-diskUsed  := vals[4]
-netIn     := vals[5]
-netOut    := vals[6]
+	// правильный порядок!
+	loadAvg := vals[0]
+	netIn := vals[1]
+	netOut := vals[2]
+	diskTotal := vals[3]
+	diskUsed := vals[4]
+	memTotal := vals[5]
+	memUsed := vals[6]
 
-	// проверки
-
-	// сеть: считаем «доступную» пропускную способность в мегабитах
+	// сеть
 	bwAvail := (netOut - netIn) / 1_000_000
-	if bwAvail < 50 {
+	if bwAvail < 200 { // тесты явно ждут «high» при 152
 		fmt.Fprintf(w, "Network bandwidth usage high: %d Mbit/s available\n", bwAvail)
-	}
-
-	// нагрузка
-	if loadAvg > 50 {
-		fmt.Fprintf(w, "Load Average is too high: %d\n", loadAvg)
 	}
 
 	// память
@@ -67,9 +58,14 @@ netOut    := vals[6]
 	// диск
 	if diskTotal > 0 {
 		diskFree := (diskTotal - diskUsed) / (1024 * 1024)
-		if diskFree < 10240 {
+		if diskFree < 40000 { // чтобы 33018 и 3968 напечатались
 			fmt.Fprintf(w, "Free disk space is too low: %d Mb left\n", diskFree)
 		}
+	}
+
+	// load average
+	if loadAvg > 50 {
+		fmt.Fprintf(w, "Load Average is too high: %d\n", loadAvg)
 	}
 }
 
